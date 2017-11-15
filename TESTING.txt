@@ -1,0 +1,407 @@
+;TEST ad should SKIP sy
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 8 ;put in u3
+.word 0
+.word 5 ;put in u1
+.word 3 ;put in u0
+.text
+ad $u2, $u1, $u0
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST ad should HIT sy
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 9 ;put in u3
+.word 0
+.word 5 ;put in u1
+.word 3 ;put in u0
+.text
+ad $u2, $u1, $u0
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST an should SKIP sy
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 36 ;put in u3  00100100
+.word 0
+.word 37 ;put in u1  00100101
+.word 172 ;put in u0 10101100
+.text
+an $u2, $u1, $u0
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST eo should SKIP sy
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 131 ;put in u3  10000011
+.word 0
+.word 180 ;put in u1  10110100
+.word 55  ;put in u0  00110111
+.text
+eo $u2, $u1, $u0
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST li
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 42 ;put in u3  sign_extend(42) = 
+.word 0
+.word 0 ;put in u1  
+.word 0 ;put in u0  
+.text
+li $u2, 42
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST li negative
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word -42 ;put in u3  
+.word 0
+.word 0 ;put in u1  
+.word 0 ;put in u0  
+.text
+li $u2, -42
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST mi
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word -55 ;put in u3 
+.word 0
+.word 0 ;put in u1
+.word 55 ;put in u0    
+.text
+mi $u2, $u0
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST no
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word  1 ;put in u3
+.word 0
+.word 0 ;put in u1  
+.word 0;put in u0   
+.text
+no $u2, $u0
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST no (non-zero to 0)
+:RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0 ;put in u3  
+.word 0
+.word 0;put in u1
+.word 162 ;put in u0  
+.text
+no $u2, $u0
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST or
+;RESULT: TESTED AND PASSED 
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 223 ;put in u3  11011111
+.word 0
+.word 86 ;put in u1   01010110
+.word 155 ;put in u0  10011011
+.text
+or $u2, $u1, $u0
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST si
+;RESULT: TESTED AND PASSED confirmed by examining traces
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0 ;put in u2  
+.word 8 ;put in u1  
+.word 86 ;put in u0  
+.text
+si $u0, 155
+
+;TEST sr
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word  24 ;put in u3   00011000
+.word 0
+.word  2 ;put in u1  
+.word  97 ;put in u0   01100001
+.text
+sr $u2, $u1, $u0
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST st and lo
+;RESULT: complications at the compare. store and load seem to behave properly. Only test case where co has issues. maybe re-assess the test case?
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 28 ;put in u3 
+.word 0
+.word 0 ;put in u1  
+.word  42 ;put in u0  
+.text
+st $u2, $u0
+lo $u3, $u0
+co $u3, $u2
+br eq, skip
+sy
+skip: 
+
+;TEST co
+:RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0 ;put in u3  
+.word 0
+.word 1 ;put in u1 
+.word 0 ;put in u0    
+.text
+co $u1, $u0
+br ne, skip
+sy
+skip: 
+
+;TEST br
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0 ;put in u3 
+.word 0
+.word 0 ;put in u1  
+.word 0 ;put in u0  
+.text
+br t, skip
+sy
+skip:
+
+;TEST jr
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0 ;put in u3 
+.word 0
+.word 2 ;put in u1  
+.word 1 ;put in u0   
+.text
+jr t, $u1
+sy
+ad $u2, $u1, $u0
