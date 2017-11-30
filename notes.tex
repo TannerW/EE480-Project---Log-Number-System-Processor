@@ -1,0 +1,70 @@
+\documentclass{sig-alternate-05-2015}
+\begin{document}
+
+% ACM templates include ISBN and DOI...
+\isbn{N.A.}
+\doi{N.A.}
+
+\title{EE480 Assignment 1: 8-bit Signed Saturation Adder}
+\subtitle{Implementor's Notes}
+
+\numberofauthors{1}
+\author{
+Hank Dietz\\
+       \affaddr{Department of Electrical and Computer Engineering}\\
+       \affaddr{University of Kentucky, Lexington, KY USA}\\
+       \email{\texttt{hankd@engr.uky.edu}}
+}
+
+\maketitle
+\begin{abstract}
+This project was a simple combinatorial design problem to
+ensure that students were somewhat comfortable with basic use of
+Verilog, including the concept of writing an exhaustive testbench.
+\end{abstract}
+
+
+\section{General Approach}
+
+This assignment required construction of a synthesizable 8-bit
+signed saturation adder.  It was hinted that this could be
+constructed using a conventional (modular) adder followed by a
+check for the inputs having the same sign while the output had a
+different sign.  When that check is true, I realized that the
+ordinary add sign being 1 meant the saturated value should be
+127, and if it is 0, the saturation result should be -128.
+
+I built my saturation adder using three modules,
+\texttt{satadd8} (as required by the assignment), \texttt{add8},
+and \texttt{fa}.  The modular adder (\texttt{add8}) is a simple
+ripple-carry implementation built using full adders
+(\texttt{fa}).
+
+Rather than clutter the \texttt{testbench} routine with the
+computation of the correct (oracle) result, I wrote a separate
+module for that, called \texttt{refsatadd8} -- which uses the
+same algorithm as the sample code in the assignment.
+
+% insert a break to roughly level columns...
+\vfill\pagebreak
+
+\section{Issues}
+
+It was a little confusing how each variable should be declared
+and when it should be updated....  The \texttt{\#1} in
+\texttt{testbench} is a hack to ensure that each pair of inputs
+is processed in sequence with nothing missed.  There are various
+other ways to do this, but I didn't want to implement a clock for
+testing what is inherently a combinatorial circuit.
+
+Everything was tested and apparently worked correctly the first
+time it made it through the WWW-form compiler and simulator.
+However, to confirm that the error detection code in
+\texttt{testbench} worked, I deliberately introduced an error
+(an incorrect carry of \texttt{cout[2]} into
+\texttt{fa4}) and observed the output stating 52,744 correct and
+12,792 failed. The assignment did not make clear what format the
+faulty outputs should be listed in, so I just composed a format
+where each line starts with \texttt{Wrong:}.
+
+\end{document}
