@@ -134,7 +134,7 @@ module ALU(ALUResult, cond, instruct, currentTsrc, currentDst, a, b);
             `OPor: ALUResult = a|b;
             `OPsr: ALUResult = a >> b;
             //log instructions
-            `OPdl:
+            `OPdl: //not test yet TODO: make test case
                 begin
                     if ((a == lnsnan) || (b == lnsnan)) ALUResult = lnsnan;
                     if (b == zero) ALUResult = lnsnan;
@@ -150,7 +150,7 @@ module ALU(ALUResult, cond, instruct, currentTsrc, currentDst, a, b);
                     if (m >= posinf) m = posinf; // I think i remember Dietz saying we can use the Assign 0 solution for this comparison
                     ALUResult = {s | m};
                 end
-            `OPml:
+            `OPml: //not test yet TODO: make test case
                 begin
                     if ((a == lnsnan) || (b == lnsnan)) ALUResult = lnsnan;
                     if ((a == zero) || (b == zero)) ALUResult = zero;
@@ -163,6 +163,8 @@ module ALU(ALUResult, cond, instruct, currentTsrc, currentDst, a, b);
                     if (m >= posinf) m = posinf; // I think i remember Dietz saying we can use the Assign 0 solution for this comparison
                     ALUResult = {s | m};
                 end
+            //`OPal: TODO: implement this command
+            //`OPnl: TODO: implement this command
             /////////
             `OPco:
             begin
@@ -373,6 +375,13 @@ module processor(halt, reset, clk);
                 if (stage2regdst !=0) regfile[stage2regdst] <= stage2Value;
         end
     end
+    
+    //log lookup table access
+    
+    
+    //log number specific ALU
+    
+    
 endmodule
 
 module processor_tb();
