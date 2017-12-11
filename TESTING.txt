@@ -457,3 +457,55 @@ cl $u3, $u2
 br eq, skip
 sy
 skip:
+
+;TEST nl should SKIP sy
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word -15628 ;put in u1 -60 -> which is 0xc2f4 in lns -> which is 1100 0010 1111 0100 in binary -> which converts to -15628 in decimal
+.word 17140 ;put in u0 60 which is 0x42f4 in lns which is 0100 0010 1111 0100 in binary which converts to 17140 in decimal
+.text
+nl $u2, $u0
+cl $u1, $u2
+br eq, skip
+sy
+skip:
+
+;TEST al should SKIP sy
+;RESULT: 
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 16917;put in u3 18 -> which is 0x4215 in lns -> which is 0100 0010 0001 0101 in binary -> which converts to 16917 in decimal
+.word 0
+.word 16884 ;put in u1 15 -> which is 0x41f4 in lns -> which is 0100 0001 1111 0100 in binary -> which converts to 16884 in decimal
+.word 16586 ;put in u0 3 which is 0x40ca in lns which is 0100 0000 1100 1010 in binary which converts to 16586 in decimal
+.text
+al $u2, $u1, $u0
+cl $u3, $u2
+br eq, skip
+sy
+skip:
