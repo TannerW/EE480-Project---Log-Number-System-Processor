@@ -406,8 +406,8 @@ jr t, $u1
 sy
 ad $u2, $u1, $u0
 
-;TEST ml should HIT sy
-;RESULT: 
+;TEST ml should SKIP sy
+;RESULT: TESTED AND PASSED
 .data
 .word 0
 .word 0
@@ -431,3 +431,29 @@ cl $u3, $u2
 br eq, skip
 sy
 skip: 
+
+;TEST dl should SKIP sy
+;RESULT: TESTED AND PASSED
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 16682 ;put in u3 5 -> which is 0x412a in lns -> which is 0100 0001 0010 1010 in binary -> which converts to 16682 in decimal
+.word 0
+.word 16884 ;put in u1 15 -> which is 0x41f4 in lns -> which is 0100 0001 1111 0100 in binary -> which converts to 16884 in decimal
+.word 16586 ;put in u0 3 which is 0x40ca in lns which is 0100 0000 1100 1010 in binary which converts to 16586 in decimal
+.text
+dl $u2, $u1, $u0
+cl $u3, $u2
+br eq, skip
+sy
+skip:
