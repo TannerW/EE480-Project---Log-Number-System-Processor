@@ -484,8 +484,8 @@ br eq, skip
 sy
 skip:
 
-;TEST al should SKIP sy
-;RESULT: 
+;TEST al (ADDITION) should SKIP sy 
+;RESULT: TESTED AND PASSED
 .data
 .word 0
 .word 0
@@ -503,6 +503,32 @@ skip:
 .word 0
 .word 16884 ;put in u1 15 -> which is 0x41f4 in lns -> which is 0100 0001 1111 0100 in binary -> which converts to 16884 in decimal
 .word 16586 ;put in u0 3 which is 0x40ca in lns which is 0100 0000 1100 1010 in binary which converts to 16586 in decimal
+.text
+al $u2, $u1, $u0
+cl $u3, $u2
+br eq, skip
+sy
+skip:
+
+;TEST al (SUBRTRACTION) should SKIP sy
+;RESULT: 
+.data
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 0
+.word 16842;put in u3 12 -> which is 0x41ca in lns -> which is 0100 0001 1100 1010 in binary -> which converts to 16842 in decimal
+.word 0
+.word 16884 ;put in u1 15 -> which is 0x41f4 in lns -> which is 0100 0001 1111 0100 in binary -> which converts to 16884 in decimal
+.word -16182 ;put in u0 -3 which is 0xc0ca in lns which is 1100 0000 1100 1010 in binary which converts to -16182 in decimal
 .text
 al $u2, $u1, $u0
 cl $u3, $u2
