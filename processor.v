@@ -96,7 +96,7 @@ module decode(opout, regdst, opin, ir);
                                 //lo
                                 4'b0010: begin opout = `OPlo; regdst <= ir `dest; end
                                 //nl
-                                //4'b0011: opout = `OPnl; //dont need to implement for this assignment
+                                4'b0011: begin opout = `OPnl; regdst <= ir `dest; end //dont need to implement for this assignment
                                 //st
                                 4'b0100: begin opout = `OPst; regdst <= 0; end
                                 default: begin opout = `OPnop; regdst <= 0; end //call a system stop because we shouldnt be here
@@ -113,15 +113,17 @@ module decode(opout, regdst, opin, ir);
     end
 endmodule
 
-module ALU(ALUResult, cond, condUndefined, instruct, currentTsrc, currentDst, a, b);
+module ALU(ALUResult, cond, condUndefined, instruct, currentTsrc, currentDst, a, b, subTableEntry, addTableEntry, magnitude);
     
     output reg `word ALUResult;
     input wire `opcodeSystemLen instruct;
-    input wire `word a, b;
+    input wire `word a, b, subTableEntry, addTableEntry, magnitude;
     input wire `regName currentDst, currentTsrc;
     
     reg `word lnsSignBit;
-    reg `word lnsMagnitude, lnsMagnitudeA, lnsMagnitudeB;
+    reg `word new_magnitude; 
+    reg `word lnsSignBitA, lnsSignBitB, lnsSignBitTemp;
+    reg `word lnsMagnitude, lnsMagnitudeA, lnsMagnitudeB, lnsMagnitudeTemp;
     
     output reg [7:0] cond;
     output reg condUndefined;
@@ -145,6 +147,100 @@ module ALU(ALUResult, cond, condUndefined, instruct, currentTsrc, currentDst, a,
             `OPno: ALUResult = !a;
             `OPor: ALUResult = a|b;
             `OPsr: ALUResult = a >> b;
+            `OPal: 
+                begin
+                    if ((a == `lnsNan) || (b == `lnsNan))
+                    begin
+                        ALUResult = `lnsNan;
+                    end
+                    else
+                    begin
+                        if ((a == `lnsPosinf) && (b == `lnsPosinf))
+                        begin
+                            ALUResult = `lnsNan;
+                        end
+                        else
+                        begin
+                            if (a == `lnsPosinf)
+                            begin
+                                ALUResult = a;
+                            end
+                            else
+                            begin
+                                if (b == `lnsPosinf)
+                                begin
+                                    ALUResult = b;
+                                end
+                                else
+                                begin
+                                    if (a == `lnsZero)
+                                    begin
+                                        ALUResult = b;
+                                    end
+                                    else
+                                    begin
+                                        if (b == `lnsZero)
+                                        begin
+                                            ALUResult = a;
+                                        end
+                                        else
+                                        begin
+                                            
+                                            lnsMagnitudeA = a & `lnsPosinf;
+                                            lnsMagnitudeB = b & `lnsPosinf;
+                                            lnsSignBitA = a & `signBitPos;
+                                            lnsSignBitB = b & `signBitPos;
+                                            
+                                            if (lnsMagnitudeA > lnsMagnitudeB)
+                                            begin
+                                                lnsMagnitudeTemp = lnsMagnitudeA^lnsMagnitudeB;
+                                                lnsMagnitudeB = lnsMagnitudeB^lnsMagnitudeTemp;
+                                                lnsMagnitudeA = lnsMagnitudeTemp^lnsMagnitudeB;
+                                                
+                                                lnsSignBitTemp = lnsSignBitA^lnsSignBitB;
+                                                lnsSignBitB = lnsSignBitB^lnsSignBitTemp;
+                                                lnsSignBitA = lnsSignBitTemp^lnsSignBitB;
+                                            end
+                                            
+                                            if(lnsSignBitA == lnsSignBitB) //same sign? add
+                                            begin
+                                                if( magnitude < 16'h03c4 )
+                                                begin
+                                                    new_magnitude = addTableEntry;
+                                                end
+                                                else
+                                                begin
+                                                    new_magnitude = magnitude;
+                                                end
+                                                
+                                                ALUResult = ((lnsMagnitudeA + new_magnitude) | lnsSignBitA);
+                                                //ALUResult = ((lnsMagnitudeA + 1) | lnsSignBitA);
+                                            end
+                                            else //else subtract
+                                            begin
+                                                if( magnitude > 16'h1850 )
+                                                begin
+                                                    ALUResult = lnsMagnitudeB | lnsSignBitB;
+                                                end
+                                                else
+                                                begin
+                                                    if( magnitude > 16'h03c4 )
+                                                    begin
+                                                        ALUResult = ((lnsMagnitudeB - 1) | lnsSignBitB);
+                                                    end
+                                                    else
+                                                    begin
+                                                        ALUResult = ((lnsMagnitudeB - subTableEntry) | lnsSignBitB);
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end 
+                            end
+                        end
+                    end
+                end
             `OPml: //not test yet TODO: make test case
                 begin
                     if ((a == `lnsNan) || (b == `lnsNan))
@@ -358,6 +454,39 @@ module ALU(ALUResult, cond, condUndefined, instruct, currentTsrc, currentDst, a,
 
 endmodule
 
+module secondary_LNSAddSub_ALU(LNS_AddSub_ALUResult, a, b);
+
+    output reg `word LNS_AddSub_ALUResult;
+    input wire `word a, b;
+    
+    reg `word new_magnitude;
+    
+    reg `word lnsSignBitA, lnsSignBitB, lnsSignBitTemp;
+    reg `word lnsMagnitudeA, lnsMagnitudeB, lnsMagnitudeTemp;
+    
+    always@(a, b)
+    begin
+        lnsMagnitudeA = a & `lnsPosinf;
+        lnsMagnitudeB = b & `lnsPosinf;
+        
+        if (lnsMagnitudeA > lnsMagnitudeB)
+        begin
+            lnsMagnitudeTemp = lnsMagnitudeA^lnsMagnitudeB;
+            lnsMagnitudeB = lnsMagnitudeB^lnsMagnitudeTemp;
+            lnsMagnitudeA = lnsMagnitudeTemp^lnsMagnitudeB;
+            
+            LNS_AddSub_ALUResult = lnsMagnitudeB - lnsMagnitudeA;
+            
+        end
+        else
+        begin
+                            
+            LNS_AddSub_ALUResult = lnsMagnitudeB - lnsMagnitudeA;
+        end
+    end
+    
+endmodule
+
 module processor(halt, reset, clk);
     output reg halt;
     input reset, clk;
@@ -374,11 +503,12 @@ module processor(halt, reset, clk);
     reg `word TsrcValue, srcValue, dstValue;
     wire `opcodeSystemLen op; //entering operation code
     wire `regName regdst; //entering destination register address, if 0 then no write to registers occurs
-    wire `word ALUResult; //ALU output
+    wire `word ALUResult, LNS_AddSub_ALUResult; //ALU outputs
+    reg `word subTableEntry, addTableEntry, magnitude; //values needed by the add/sub LNS ALU
     reg `word pc; //program counter
     
     //intermediate buffer variables
-    reg `opcodeSystemLen stage0op, stage1op, stage2op; //opcodes for each stage
+    reg `opcodeSystemLen stage0op, stage1op, stage2op, stage3op, stage4op; //opcodes for each stage
         //stage*Tsrc - address of T source register
         //stage*src - address of source register
         //stage*dst - address of destination register
@@ -386,10 +516,13 @@ module processor(halt, reset, clk);
     reg `regName stage0Tsrc, stage0src, stage0dst, stage0regdst;
     reg `regName stage1Tsrc, stage1src, stage1dst, stage1regdst;
     reg `regName stage2Tsrc, stage2src, stage2dst, stage2regdst;
+    reg `regName stage3Tsrc, stage3src, stage3dst, stage3regdst;
+    reg `regName stage4Tsrc, stage4src, stage4dst, stage4regdst;
         //stage*TsrcValue - regfile[stage*Tsrc]
         //stage*srcValue - regfile[stage*src]
         //stage*dstValue - regfile[stage*dst]
     reg `word stage1TsrcValue, stage1srcValue, stage1dstValue;
+    reg `word stage2TsrcValue, stage2srcValue, stage2dstValue;
     reg `word stage2Value;
     
     wire [7:0] conditions; //comes from ALU
@@ -426,8 +559,8 @@ module processor(halt, reset, clk);
     //instruction decoder
     decode inst_decode(op, regdst, stage0op, ir);
     //arithmetic logic unit
-    ALU inst_ALU(ALUResult, conditions, condUndefined, stage1op, stage1Tsrc, stage1dst, stage1srcValue, stage1TsrcValue);
-    
+    ALU inst_ALU(ALUResult, conditions, condUndefined, stage1op, stage1Tsrc, stage1dst, stage1srcValue, stage1TsrcValue, subTableEntry, addTableEntry, magnitude);
+    secondary_LNSAddSub_ALU inst_secALU(LNS_AddSub_ALUResult, srcValue, TsrcValue);
     //instruction register
     always@(*) ir = mainmem[pc];
                                         
@@ -455,7 +588,7 @@ module processor(halt, reset, clk);
     //IS squash - for jr and br
     always@(*)
     begin
-        isSquash = (((stage1op == `OPbr) && (conditions[stage1dst] == 1)) || ((stage1op == `OPjr) && (conditions[stage1Tsrc] == 1)));
+        isSquash = (((stage1op == `OPbr) && (conditions[stage1dst] == 1) && (condUndefined == 0)) || ((stage1op == `OPjr) && (conditions[stage1Tsrc] == 1) && (condUndefined == 0)));
     end
     
     //TODO: check if needed, if so - why?
@@ -497,6 +630,22 @@ module processor(halt, reset, clk);
         end
     end
     
+    
+    //stage 1a
+    //secondary LNS add and sub ALU and access add/sub tables
+    always@(posedge clk)
+    begin
+        if(!halt)
+        begin
+            if(stage0op == `OPal)
+            begin
+                subTableEntry <= subtab[LNS_AddSub_ALUResult];
+                addTableEntry <= addtab[LNS_AddSub_ALUResult];
+                magnitude <= LNS_AddSub_ALUResult;
+            end
+        end
+    end
+
     //ALU operation stage 2
     always@(posedge clk)
     begin
@@ -523,6 +672,7 @@ module processor(halt, reset, clk);
                 if (stage2regdst !=0) regfile[stage2regdst] <= stage2Value;
         end
     end
+    
 endmodule
 
 module processor_tb();
@@ -532,8 +682,9 @@ module processor_tb();
     integer i = 0;
     processor PE(halted, reset, clk);
     initial begin
-        //$dumpfile;
-        //$dumpvars(0, PE);
+        //dump commands for monitoring values NO MONITOR LINE NECESSARY BECAUSE OF THIS
+        $dumpfile;
+        $dumpvars(0, PE);
         #10 reset = 1;
         #10 reset = 0;
         while (!halted && (i < 200)) begin
@@ -541,6 +692,5 @@ module processor_tb();
             #10 clk = 0;
             i=i+1;
         end
-        $finish;
-    end
+     end
 endmodule
