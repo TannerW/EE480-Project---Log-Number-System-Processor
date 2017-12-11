@@ -1,22 +1,22 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
-// Company:
-// Engineer:
-//
+// Company: 
+// Engineer: 
+// 
 // Create Date: 11/06/2017 02:04:30 PM
-// Design Name:
+// Design Name: 
 // Module Name: processor
-// Project Name:
-// Target Devices:
-// Tool Versions:
-// Description:
-//
-// Dependencies:
-//
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
 // Revision:
 // Revision 0.01 - File Created
 // Additional Comments:
-//
+// 
 //////////////////////////////////////////////////////////////////////////////////
 
 `define word		[15:0]
@@ -29,14 +29,16 @@
 `define regName     [3:0]
 `define regsize		[15:0]
 `define memsize 	[65535:0]
-`define width		16;
-`define sign 4'h8000
-`define one 4'h4000
-`define zero 4'h0000
-`define lnsnan 4'h8000
-`define posinf 4'h7fff
-`define neginf 4'hffff
-//`define infinite(V) (((V)&&posinf)==posinf) ?
+`define width		16
+
+`define signBitPos 16'h8000
+`define lnsOne 16'h4000
+`define lnsZero 16'h0000
+`define lnsNan 16'h8000
+`define lnsPosinf 16'h7fff
+`define lnsNeginf 16'hffff
+
+`define tabsize [963:0]
 
 //condition codes
 `define fPos [0]
@@ -77,16 +79,16 @@ module decode(opout, regdst, opin, ir);
     output reg `regName regdst;
     input wire `opcodeSystemLen opin;
     input `word ir;
-
+    
     always@(opin, ir) begin
         case(ir`opcode)
 //                `OPor: opout = `OPor;
 //                `OPst: opout = `OPst;
-            `OPco:
+            `OPco: 
                 begin
                     case(ir `dest) //use dest as extended opcode
                         //cl
-                        //4'b0000: opout = `OPcl; //not needed for this assignment
+                        4'b0000: begin opout = `OPcl; regdst = 0; end
                         //co
                         4'b0001: begin opout = `OPco; regdst = 0; end
                         default:
@@ -111,16 +113,26 @@ module decode(opout, regdst, opin, ir);
     end
 endmodule
 
-module ALU(ALUResult, cond, instruct, currentTsrc, currentDst, a, b);
-
+module ALU(ALUResult, cond, condUndefined, instruct, currentTsrc, currentDst, a, b);
+    
     output reg `word ALUResult;
     input wire `opcodeSystemLen instruct;
     input wire `word a, b;
     input wire `regName currentDst, currentTsrc;
-    wire s, m;
+    
+    reg `word lnsSignBit;
+    reg `word lnsMagnitude, lnsMagnitudeA, lnsMagnitudeB;
+    
     output reg [7:0] cond;
-    initial cond = 8'b10000000; //t gt ge ne eq le lt f
+    output reg condUndefined;
+    
+    initial
+    begin
+        cond = 8'b10000000; //t gt ge ne eq le lt f
+        condUndefined = 1'b0;
+    end
 
+    
     always@(instruct, a, b, currentTsrc, currentDst) begin
         case(instruct)
             `OPad:
@@ -133,84 +145,213 @@ module ALU(ALUResult, cond, instruct, currentTsrc, currentDst, a, b);
             `OPno: ALUResult = !a;
             `OPor: ALUResult = a|b;
             `OPsr: ALUResult = a >> b;
-            //log instructions
-            `OPdl: //not test yet TODO: make test case
-                begin
-                    if ((a == lnsnan) || (b == lnsnan)) ALUResult = lnsnan;
-                    if (b == zero) ALUResult = lnsnan;
-                    if (a == zero) ALUResult = zero;
-                    if (b[posinf] == posinf) begin
-                        if (a[posinf] == posinf) ALUResult = lnsnan;
-                        else ALUResult = zero; // (a/inf)->0
-                    end
-                    if (a[posinf] == posinf) ALUResult = a;
-                    assign s = (a ^ b) & sign;
-                    assign m = ((a[posinf] - one) - (b[posinf] - one));
-                    m = m + one;
-                    if (m >= posinf) m = posinf; // I think i remember Dietz saying we can use the Assign 0 solution for this comparison
-                    ALUResult = {s | m};
-                end
             `OPml: //not test yet TODO: make test case
                 begin
-                    if ((a == lnsnan) || (b == lnsnan)) ALUResult = lnsnan;
-                    if ((a == zero) || (b == zero)) ALUResult = zero;
-                    if ((a[posinf] == posinf) || (b[posinf] == posinf)) begin
-                        ALUResult = (posinf | ((a ^ b) & sign));
+                    if ((a == `lnsNan) || (b == `lnsNan))
+                    begin
+                        ALUResult = `lnsNan;
                     end
-                    assign s = (a ^ b) & sign;
-                    assign m = ((a[posinf] - one) - (b[posinf] - one));
-                    m = m + one;
-                    if (m >= posinf) m = posinf; // I think i remember Dietz saying we can use the Assign 0 solution for this comparison
-                    ALUResult = {s | m};
-                end
-            //`OPal: TODO: implement this command
-            //`OPnl: TODO: implement this command
-            /////////
-            `OPco:
-            begin
-                case(currentDst)
-                    //cl
-                    4'b0000: ; //dont need to implement for this assignment
-                    //co
-                    4'b0001:
+                    else
+                    begin
+                        if ((a == `lnsZero) || (b == `lnsZero))
                         begin
-                            cond = 8'b10000000;
-
-                            if (a == b)
+                            ALUResult = `lnsZero;
+                        end
+                        else
+                        begin
+                            if ((a == `lnsPosinf) || (b == `lnsPosinf))
                             begin
-                                cond`eqPos = 1;
-                                cond`lePos = 1;
-                                cond`gePos = 1;
+                                ALUResult = (`lnsPosinf | ((a ^ b) & `signBitPos));
                             end
                             else
                             begin
-                                if(a > b)
+                                lnsSignBit = (a ^ b) & `signBitPos;
+                                lnsMagnitude = ((((a & `lnsPosinf) - `lnsOne) + ((b & `lnsPosinf) - `lnsOne)) + `lnsOne);
+                                if (lnsMagnitude >= `lnsPosinf)
                                 begin
-                                    cond`gtPos = 1;
-                                    cond`nePos = 1;
-                                    cond`gePos = 1;
+                                    lnsMagnitude = `lnsPosinf; // I think i remember Dietz saying we can use the Assign 0 solution for this comparison
+                                    ALUResult = lnsSignBit | lnsMagnitude;
                                 end
                                 else
                                 begin
-                                    if(a < b)
+                                    ALUResult = lnsSignBit | lnsMagnitude;
+                                end
+                            end
+                        end
+                    end
+                end
+            `OPdl: //not test yet TODO: make test case
+                begin
+                    if ((a == `lnsNan) || (b == `lnsNan))
+                    begin
+                        ALUResult = `lnsNan;
+                    end
+                    else
+                    begin
+                        if (b == `lnsZero)
+                        begin
+                            ALUResult = `lnsNan;
+                        end
+                        else
+                        begin
+                            if (a == `lnsZero)
+                            begin
+                                ALUResult = `lnsZero;
+                            end
+                            else
+                            begin
+                                if (b == `lnsPosinf) begin
+                                    if (a == `lnsPosinf)
+                                        ALUResult = `lnsNan;
+                                    else
+                                        ALUResult = `lnsZero; // (a/inf)->0
+                                end
+                                else
+                                begin
+                                    if (a == `lnsPosinf)
                                     begin
-                                        cond`ltPos = 1;
-                                         cond`nePos = 1;
-                                         cond`lePos = 1;
+                                        ALUResult = a;
+                                    end
+                                    else
+                                    begin
+                                        lnsSignBit = (a ^ b) & `signBitPos;
+                                        lnsMagnitude = ((((a & `lnsPosinf) - `lnsOne) - ((b & `lnsPosinf) - `lnsOne)) + `lnsOne);
+                                        if (lnsMagnitude >= `lnsPosinf)
+                                        begin
+                                            lnsMagnitude = `lnsPosinf; // I think i remember Dietz saying we can use the Assign 0 solution for this comparison
+                                            ALUResult = lnsSignBit | lnsMagnitude;
+                                        end
+                                        else
+                                        begin
+                                            ALUResult = lnsSignBit | lnsMagnitude;
+                                        end
                                     end
                                 end
                             end
                         end
-                    default:
-                        case(currentTsrc)
-//                        //lo
-//                        4'b0010: ; //just passthrough stage1srcvalue
-//                        //nl
-//                        4'b0011: ; //dont need to implement for this assignment
-                        default: ALUResult = a;
-                        endcase
-                endcase
-            end
+                    end
+                end
+            `OPco: 
+                begin
+                    case(currentDst)
+                        //cl
+                        4'b0000:
+                            begin
+                                cond = 8'b10000000;
+                                condUndefined = 1'b0;
+                                
+                                if ((a == `lnsNan) || (b == `lnsNan))
+                                begin
+                                    condUndefined = 1'b1;
+                                end
+                                else
+                                begin
+                                    if ((a & `signBitPos) != (b & `signBitPos))
+                                    begin
+                                        if ((a & `signBitPos) == 0) //a>b?
+                                        begin
+                                            cond`gtPos = 1;
+                                            cond`nePos = 1;
+                                            cond`gePos = 1;
+                                        end
+                                        else //a<b?
+                                        begin
+                                            cond`ltPos = 1;
+                                            cond`nePos = 1;
+                                            cond`lePos = 1;
+                                        end
+                                    end
+                                    else
+                                    begin
+                                        if (a == b) //does a = b?
+                                        begin
+                                            cond`eqPos = 1;
+                                            cond`lePos = 1;
+                                            cond`gePos = 1;
+                                        end
+                                        else 
+                                        begin //a and b have the same sign so their magnitudes need to be compared
+                                            lnsMagnitudeA = a & `lnsPosinf;
+                                            lnsMagnitudeB = b & `lnsPosinf;
+                                            
+                                            if ((a & `signBitPos) == 0)
+                                            begin //a and b are both positve values
+                                                if (lnsMagnitudeA < lnsMagnitudeB) //a < b?
+                                                begin
+                                                     cond`ltPos = 1;
+                                                     cond`nePos = 1;
+                                                     cond`lePos = 1;
+                                                end
+                                                else //a > b??
+                                                begin
+                                                    cond`gtPos = 1;
+                                                    cond`nePos = 1;
+                                                    cond`gePos = 1;
+                                                end
+                                            end
+                                            else
+                                            begin //a and b are both negative values
+                                                if (lnsMagnitudeA < lnsMagnitudeB) //a > b?
+                                                begin
+                                                    cond`gtPos = 1;
+                                                    cond`nePos = 1;
+                                                    cond`gePos = 1;
+                                                end
+                                                else //a < b??
+                                                begin
+                                                     cond`ltPos = 1;
+                                                     cond`nePos = 1;
+                                                     cond`lePos = 1;
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        //co
+                        4'b0001: 
+                            begin
+                                cond = 8'b10000000;
+                                condUndefined = 1'b0;
+                            
+                                if (a == b)
+                                begin
+                                    cond`eqPos = 1;
+                                    cond`lePos = 1;
+                                    cond`gePos = 1;
+                                end
+                                else
+                                begin
+                                    if(a > b)
+                                    begin
+                                        cond`gtPos = 1;
+                                        cond`nePos = 1;
+                                        cond`gePos = 1;
+                                    end
+                                    else
+                                    begin
+                                        if(a < b)
+                                        begin
+                                            cond`ltPos = 1;
+                                             cond`nePos = 1;
+                                             cond`lePos = 1;
+                                        end
+                                    end
+                                end
+                            end
+                        default:
+                            case(currentTsrc)
+    //                        //lo
+    //                        4'b0010: ; //just passthrough stage1srcvalue
+                            //nl
+                            4'b0011:
+                                begin
+                                    ALUResult = (a & `lnsPosinf) ? (a ^ `signBitPos) : a;
+                                end
+                            default: ALUResult = a;
+                            endcase
+                    endcase
+                end
             default: ALUResult = a;
         endcase
     end
@@ -220,10 +361,12 @@ endmodule
 module processor(halt, reset, clk);
     output reg halt;
     input reset, clk;
-
+    
     reg `word regfile `regsize;
     reg `word mainmem `memsize;
-
+    reg `word subtab `tabsize;
+    reg `word addtab `tabsize;
+    
     reg `word ir, nextPC;
         //TsrcValue - Tsrc value returned right after a reg file read
         //srcValue - src value returned right after a reg file read
@@ -233,7 +376,7 @@ module processor(halt, reset, clk);
     wire `regName regdst; //entering destination register address, if 0 then no write to registers occurs
     wire `word ALUResult; //ALU output
     reg `word pc; //program counter
-
+    
     //intermediate buffer variables
     reg `opcodeSystemLen stage0op, stage1op, stage2op; //opcodes for each stage
         //stage*Tsrc - address of T source register
@@ -248,21 +391,22 @@ module processor(halt, reset, clk);
         //stage*dstValue - regfile[stage*dst]
     reg `word stage1TsrcValue, stage1srcValue, stage1dstValue;
     reg `word stage2Value;
-
+    
     wire [7:0] conditions; //comes from ALU
-
+    wire condUndefined; //comes from ALU
+    
     reg isSquash, rrsquash; //bits used to control instruction squashing
-
+    
     //sign extend immediate
     wire `word sexi;
     assign sexi = { (ir[7] ? 8'b11111111 : 8'b00000000), (ir `I) };
-
+    
     reg `word sexi_delayed; //used for load immediate
     always@(posedge clk)
     begin
         sexi_delayed <= sexi;
     end
-
+    
     always@(reset)begin
         halt = 0;
         pc = 0;
@@ -270,54 +414,58 @@ module processor(halt, reset, clk);
         stage1op = `OPnop;
         stage2op = `OPnop;
         //$readmemh0(regfile);
-        $readmemh("C:/Users/Tanner/ownCloud/School/EE480/Assignment3/assignment3/data.list",regfile);
+        $readmemh("E:/nextcloud/School/EE480/Assignment4/assignment4/data.list",regfile);
         //$readmemh1(mainmem);
-        $readmemh("C:/Users/Tanner/ownCloud/School/EE480/Assignment3/assignment3/text.list",mainmem);
+        $readmemh("E:/nextcloud/School/EE480/Assignment4/assignment4/text.list",mainmem);
+        //$readmemh1(addtab);
+        $readmemh("E:/nextcloud/School/EE480/Assignment4/assignment4/addtab.list",addtab);
+        //$readmemh1(subtab);
+        $readmemh("E:/nextcloud/School/EE480/Assignment4/assignment4/subtab.list",subtab);
     end
-
+    
     //instruction decoder
     decode inst_decode(op, regdst, stage0op, ir);
     //arithmetic logic unit
-    ALU inst_ALU(ALUResult, conditions, stage1op, stage1Tsrc, stage1dst, stage1srcValue, stage1TsrcValue);
-
+    ALU inst_ALU(ALUResult, conditions, condUndefined, stage1op, stage1Tsrc, stage1dst, stage1srcValue, stage1TsrcValue);
+    
     //instruction register
     always@(*) ir = mainmem[pc];
-
+                                        
     //compute srcValue, with value forwarding
     always @(*) if (stage0op == `OPli) srcValue = sexi_delayed; // catch immediate for li
                 else srcValue = ( (stage1regdst === 4'bXXXX) ? regfile[stage0src] : (((stage1regdst && (stage0src == stage1regdst)) ? ALUResult :
                                     ( (stage2regdst === 4'bXXXX) ? regfile[stage0src] : (((stage2regdst && (stage0src == stage2regdst)) ? stage2Value :
                                         regfile[stage0src]))))));
-
+                                    
     //compute TsrcValue, with value forwarding
     always @(*) TsrcValue = ( (stage1regdst === 4'bXXXX) ? regfile[stage0Tsrc] : (((stage1regdst && (stage0Tsrc == stage1regdst)) ? ALUResult :
                                 ( (stage2regdst === 4'bXXXX) ? regfile[stage0Tsrc] : (((stage2regdst && (stage0Tsrc == stage2regdst)) ? stage2Value :
                                     regfile[stage0Tsrc]))))));
-
+    
     //compute dstval, with value forwarding
     always @(*) dstValue = ( (stage1regdst === 4'bXXXX) ? regfile[stage0dst] : (((stage1regdst && (stage0dst == stage1regdst)) ? ALUResult :
                                ( (stage2regdst === 4'bXXXX) ? regfile[stage0dst] : (((stage2regdst && (stage0dst == stage2regdst)) ? stage2Value :
                                     regfile[stage0dst]))))));
-
+    
     //new pc
-    always @(*) nextPC = (((stage1op == `OPbr) && (conditions[stage1dst] == 1)) ? (pc + sexi) :
+    always @(*) nextPC = (((stage1op == `OPbr) && (conditions[stage1dst] == 1)) ? (pc + sexi) : 
                             ( ((stage1op == `OPjr) && (conditions[stage1Tsrc] == 1)) ? (stage1dstValue) :
                             (pc + 1)));
-
+    
     //IS squash - for jr and br
     always@(*)
     begin
         isSquash = (((stage1op == `OPbr) && (conditions[stage1dst] == 1)) || ((stage1op == `OPjr) && (conditions[stage1Tsrc] == 1)));
     end
-
+    
     //TODO: check if needed, if so - why?
-    //RR squash -
+    //RR squash - 
     always@(*)
     begin
         rrsquash = isSquash;
     end
-
-    //fetch instruction
+    
+    //fetch instruction stage 0
     always@(posedge clk)
     begin
         if(!halt)
@@ -331,8 +479,8 @@ module processor(halt, reset, clk);
             pc <= nextPC;
         end
     end
-
-    //reg read
+    
+    //reg read state 1
     always@(posedge clk)
     begin
         if(!halt)
@@ -348,8 +496,8 @@ module processor(halt, reset, clk);
             stage1dst <= stage0dst;
         end
     end
-
-    //ALU operation
+    
+    //ALU operation stage 2
     always@(posedge clk)
     begin
         if(!halt)
@@ -365,9 +513,9 @@ module processor(halt, reset, clk);
             if (stage1op == `OPsy) halt <= 1;
         end
     end
-
+    
     reg `word previousstage2Value;
-    //reg write
+    //reg write stage 3
     always@(posedge clk)
     begin
         if(!halt)
@@ -375,13 +523,6 @@ module processor(halt, reset, clk);
                 if (stage2regdst !=0) regfile[stage2regdst] <= stage2Value;
         end
     end
-    
-    //log lookup table access
-    
-    
-    //log number specific ALU
-    
-    
 endmodule
 
 module processor_tb();
